@@ -1,0 +1,21 @@
+# Dependencies
+**/node_modules/
+
+# Build outputs
+frontend/.next/
+frontend/out/
+backend/dist/
+
+# Runtime data (booking store)
+backend/data/bookings.json
+
+# Environment files
+**/.env
+**/.env.local
+**/*.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
