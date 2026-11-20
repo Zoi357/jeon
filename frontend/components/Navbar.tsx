@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { BUSINESS } from "@/lib/services";
 
@@ -16,10 +17,15 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur">
       <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded bg-brand-500 font-black text-zinc-950">
-            J
-          </span>
+        <Link href="/" className="flex items-center gap-3">
+          <Image
+            src="/logo.webp"
+            alt={BUSINESS.name}
+            width={40}
+            height={40}
+            preload
+            className="rounded object-contain"
+          />
           <span className="text-sm font-bold tracking-tight text-white sm:text-base">
             {BUSINESS.shortName.toUpperCase()}
           </span>

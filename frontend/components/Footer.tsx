@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { BUSINESS } from "@/lib/services";
 import CopyrightYear from "@/components/CopyrightYear";
 
@@ -6,17 +7,20 @@ export default function Footer() {
     <footer id="contact" className="bg-zinc-950 text-zinc-300">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-2 lg:grid-cols-4">
         <div className="sm:col-span-2 lg:col-span-2">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded bg-brand-500 font-black text-zinc-950">
-              J
-            </span>
+          <div className="flex items-center gap-3">
+            <Image
+              src="/logo.webp"
+              alt={BUSINESS.name}
+              width={40}
+              height={40}
+              className="rounded object-contain"
+            />
             <span className="text-sm font-bold tracking-tight text-white">
               {BUSINESS.name}
             </span>
           </div>
           <p className="mt-4 max-w-md text-sm leading-relaxed text-zinc-400">
-            {BUSINESS.tagline} Specialist diagnostics, tuning and fabrication for
-            road and track.
+            {BUSINESS.tagline}
           </p>
         </div>
 
