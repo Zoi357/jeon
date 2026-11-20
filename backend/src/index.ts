@@ -5,6 +5,7 @@ import session from "express-session";
 import servicesRouter from "./routes/services";
 import bookingsRouter from "./routes/bookings";
 import adminRouter from "./routes/admin";
+import { initializeStore } from "./store";
 
 const app = express();
 const clientUrl = process.env.CLIENT_URL ?? "http://localhost:3000";
@@ -45,10 +46,19 @@ app.use((err: unknown, _req: Request, _res: Response, _next: NextFunction) => {
 });
 
 const port = Number(process.env.PORT ?? 4000);
-app.listen(port, () => {
-  console.log(`JEON Engineering API → http://localhost:${port}`);
-  console.log(`CORS origin: ${clientUrl}`);
-  if (process.env.SMTP_ENABLED !== "true") {
-    console.log("Email notifications disabled (SMTP_ENABLED=false).");
-  }
+
+async function startServer() {
+  await initializeStore();
+  app.listen(port, () => {
+    console.log(`JEON Engineering API → http://localhost:${port}`);
+    console.log(`CORS origin: ${clientUrl}`);
+    if (process.env.SMTP_ENABLED !== "true") {
+      console.log("Email notifications disabled (SMTP_ENABLED=false).");
+    }
+  });
+}
+
+startServer().catch((error: unknown) => {
+  console.error("Failed to initialize the MySQL booking store:", error);
+  process.exitCode = 1;
 });

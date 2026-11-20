@@ -91,7 +91,7 @@ export default function AdminDashboard() {
           </div>
           <button
             onClick={handleLogout}
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50"
+            className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-600 transition hover:border-brand-500 hover:bg-brand-500 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
           >
             Sign out
           </button>

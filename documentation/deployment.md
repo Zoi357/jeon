@@ -40,5 +40,23 @@ The site is two separate apps deployed to two separate hosts.
 
 ## Notes
 
-- The backend stores bookings in `backend/data/bookings.json`. This file is local to the Render instance. If Render restarts the service (free tier spins down after inactivity), the file persists on the disk — but if the service is redeployed from scratch, it resets. For production, replace the JSON store with a database (see `backend/src/store.ts`).
+- The backend stores bookings in MySQL. Set `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD`, and `MYSQL_DATABASE` on the backend service. The database must exist before the API starts; the API creates its tables and indexes on startup.
+- On the first startup with an empty MySQL `bookings` table, the backend imports any existing `backend/data/bookings.json` records once. Keep the JSON file as a backup until you confirm the imported bookings in MySQL.
 - The frontend is fully static-first (Next.js Cache Components). No database connection from the frontend — all data goes through the backend API.
+
+## Local MySQL setup
+
+1. Install MySQL Server and MySQL Workbench, then start the MySQL service.
+2. In Workbench, create the application database:
+
+   ```sql
+   CREATE DATABASE jeon_bookings
+     CHARACTER SET utf8mb4
+     COLLATE utf8mb4_unicode_ci;
+   ```
+
+3. Add the MySQL settings from `backend/.env.example` to `backend/.env`. Use your local MySQL username and password.
+4. From the repository root, run `npm run dev`. The API creates the `bookings` and `app_migrations` tables and imports the JSON bookings once.
+5. In Workbench, refresh the `jeon_bookings` schema and expand **Tables** to see the tables and booking rows.
+
+If the database already contains booking rows and the JSON file also has records, startup stops rather than risk mixing or duplicating data.
