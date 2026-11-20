@@ -2,12 +2,35 @@ import { promises as fs } from "fs";
 import path from "path";
 import { randomBytes } from "crypto";
 import type { Booking, BookingInput } from "./types";
-import { getService } from "./data";
+import { getService, TIME_SLOTS } from "./data";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "bookings.json");
 
-// Cheap, deterministic reference: JEON-XXXXXX (hex, uppercase). 3 bytes → 6 hex chars.
+// SSE subscribers: map of response objects listening for slot changes.
+// Key = arbitrary subscriber id.
+const sseClients = new Map<string, NodeJS.WritableStream>();
+
+export function addSseClient(id: string, stream: NodeJS.WritableStream) {
+  sseClients.set(id, stream);
+}
+export function removeSseClient(id: string) {
+  sseClients.delete(id);
+}
+
+function broadcastSlotUpdate(date: string, slots: SlotStatus[]) {
+  const payload = JSON.stringify({ date, slots });
+  const msg = `data: ${payload}\n\n`;
+  for (const stream of sseClients.values()) {
+    try { stream.write(msg); } catch { /* client disconnected */ }
+  }
+}
+
+export type SlotStatus = {
+  time: string;
+  status: "available" | "pending" | "confirmed";
+};
+
 function makeReference(): string {
   return "JEON-" + randomBytes(3).toString("hex").toUpperCase();
 }
@@ -40,7 +63,6 @@ export async function readBookings(): Promise<Booking[]> {
   }
 }
 
-// Atomic write: temp file + rename, so a crash mid-write can't corrupt the store.
 async function writeBookings(bookings: Booking[]): Promise<void> {
   await ensureFile();
   const tmp = DATA_FILE + ".tmp";
@@ -48,17 +70,34 @@ async function writeBookings(bookings: Booking[]): Promise<void> {
   await fs.rename(tmp, DATA_FILE);
 }
 
-// Note: read-modify-write is not safe under high concurrency.
-// Fine for a single-bay workshop with low traffic; swap to a real DB to scale.
+// Returns the status of every time slot for a given date.
+export async function getSlotsForDate(
+  date: string,
+  allSlots: string[],
+): Promise<SlotStatus[]> {
+  const bookings = await readBookings();
+  const dayBookings = bookings.filter(
+    (b) => b.date === date && b.status !== "cancelled",
+  );
+
+  return allSlots.map((time) => {
+    const match = dayBookings.find((b) => b.time === time);
+    if (!match) return { time, status: "available" };
+    if (match.status === "confirmed") return { time, status: "confirmed" };
+    return { time, status: "pending" };
+  });
+}
+
 export async function addBooking(input: BookingInput): Promise<Booking> {
   const service = getService(input.serviceId);
   if (!service) {
-    throw new BookingError("Unknown service.", { serviceId: "Unknown service selected." });
+    throw new BookingError("Unknown service.", {
+      serviceId: "Unknown service selected.",
+    });
   }
 
   const bookings = await readBookings();
 
-  // Prevent double-booking the same slot (single bay assumption).
   const clash = bookings.find(
     (b) =>
       b.date === input.date &&
@@ -80,15 +119,55 @@ export async function addBooking(input: BookingInput): Promise<Booking> {
     serviceName: service.name,
     date: input.date,
     time: input.time,
-    name: input.name.trim(),
-    phone: input.phone.trim(),
-    email: input.email.trim().toLowerCase(),
-    vehicle: input.vehicle.trim(),
-    notes: (input.notes ?? "").trim(),
+    name: input.name,
+    phone: input.phone,
+    email: input.email,
+    vehicle: input.vehicle,
+    notes: input.notes ?? "",
     createdAt: new Date().toISOString(),
   };
 
   bookings.push(booking);
   await writeBookings(bookings);
+
+  // Broadcast updated slot statuses to all SSE listeners for this date.
+  const updated = await getSlotsForDate(input.date, TIME_SLOTS);
+  broadcastSlotUpdate(input.date, updated);
+
   return booking;
+}
+
+export async function updateBookingStatus(
+  id: string,
+  status: Booking["status"],
+): Promise<Booking | null> {
+  const bookings = await readBookings();
+  const idx = bookings.findIndex((b) => b.id === id);
+  if (idx === -1) return null;
+  bookings[idx].status = status;
+  await writeBookings(bookings);
+
+  const booking = bookings[idx];
+  const updated = await getSlotsForDate(booking.date, TIME_SLOTS);
+  broadcastSlotUpdate(booking.date, updated);
+
+  return booking;
+}
+
+export async function getStats(): Promise<{
+  total: number;
+  pending: number;
+  confirmed: number;
+  cancelled: number;
+  today: number;
+}> {
+  const bookings = await readBookings();
+  const todayStr = new Date().toISOString().split("T")[0];
+  return {
+    total: bookings.length,
+    pending: bookings.filter((b) => b.status === "pending").length,
+    confirmed: bookings.filter((b) => b.status === "confirmed").length,
+    cancelled: bookings.filter((b) => b.status === "cancelled").length,
+    today: bookings.filter((b) => b.date === todayStr && b.status !== "cancelled").length,
+  };
 }
